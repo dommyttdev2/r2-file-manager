@@ -61,5 +61,20 @@
     return { added, limitReached };
   }
 
-  return { shellQuote, uniqueDownloadNames, buildDownloadOutputs, addSelection, selectVisible };
+  function formatBatchTotalSize(bytes) {
+    const normalized = Number(bytes);
+    if (!Number.isFinite(normalized) || normalized <= 0) return "0 MB";
+    const useGigabytes = normalized >= 1024 ** 3;
+    const value = normalized / (1024 ** (useGigabytes ? 3 : 2));
+    return `${value.toFixed(value >= 10 ? 1 : 2)} ${useGigabytes ? "GB" : "MB"}`;
+  }
+
+  return {
+    shellQuote,
+    uniqueDownloadNames,
+    buildDownloadOutputs,
+    addSelection,
+    selectVisible,
+    formatBatchTotalSize,
+  };
 });

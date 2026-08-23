@@ -5,6 +5,7 @@ const assert = require("node:assert/strict");
 const {
   addSelection,
   buildDownloadOutputs,
+  formatBatchTotalSize,
   selectVisible,
   uniqueDownloadNames,
 } = require("../r2_file_manager/static/download_utils.js");
@@ -61,4 +62,11 @@ test("selecting the same object twice keeps a single canonical selection", () =>
   assert.equal(addSelection(selected, { key: "models/a.bin", size: 99 }), true);
   assert.equal(selected.size, 1);
   assert.equal(selected.get("models/a.bin"), original);
+});
+
+test("batch total size uses MB below one GiB and GB from one GiB", () => {
+  assert.equal(formatBatchTotalSize(0), "0 MB");
+  assert.equal(formatBatchTotalSize(512 * 1024 ** 2), "512.0 MB");
+  assert.equal(formatBatchTotalSize(1024 ** 3), "1.00 GB");
+  assert.equal(formatBatchTotalSize(1.5 * 1024 ** 3), "1.50 GB");
 });

@@ -6,6 +6,7 @@
   const {
     addSelection,
     buildDownloadOutputs,
+    formatBatchTotalSize,
     selectVisible,
   } = globalThis.R2DownloadUtils;
   const state = {
@@ -776,6 +777,8 @@
   function renderBatchSelection() {
     const selected = [...state.batchDownloadSelected.values()];
     $("#batch-selected-count").textContent = `${selected.length} / 500件`;
+    const totalSize = selected.reduce((total, object) => total + Number(object.size || 0), 0);
+    $("#batch-selected-size").textContent = `合計 ${formatBatchTotalSize(totalSize)}`;
     $("#clear-batch-selection").disabled = selected.length === 0;
     const generate = $("#generate-batch-download");
     generate.disabled = selected.length === 0;
