@@ -27,7 +27,19 @@
     });
   }
 
-  function buildDownloadOutputs(downloads) {
+  function normalizeAria2Connections(value) {
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isFinite(parsed)) return 3;
+    return Math.min(16, Math.max(1, parsed));
+  }
+
+  function buildAria2Command(downloads, connections = 3) {
+    if (!Array.isArray(downloads) || downloads.length === 0) return "";
+    const urls = downloads.map((item) => shellQuote(item.url)).join(" ");
+    return `aria2c -j3 -x${normalizeAria2Connections(connections)} ${urls}`;
+  }
+
+  function buildDownloadOutputs(downloads, aria2Connections = 3) {
     const names = uniqueDownloadNames(downloads.map((item) => item.key));
     return {
       url: downloads.map((item) => item.url).join("\n"),
@@ -37,6 +49,7 @@
       wget: downloads.map((item, index) => (
         `wget --output-document=${shellQuote(names[index])} ${shellQuote(item.url)}`
       )).join("\n"),
+      aria2: buildAria2Command(downloads, aria2Connections),
     };
   }
 
@@ -72,6 +85,8 @@
   return {
     shellQuote,
     uniqueDownloadNames,
+    normalizeAria2Connections,
+    buildAria2Command,
     buildDownloadOutputs,
     addSelection,
     selectVisible,

@@ -5,8 +5,10 @@
   const $ = (selector) => document.querySelector(selector);
   const {
     addSelection,
+    buildAria2Command,
     buildDownloadOutputs,
     formatBatchTotalSize,
+    normalizeAria2Connections,
     selectVisible,
   } = globalThis.R2DownloadUtils;
   const state = {
@@ -23,6 +25,7 @@
     batchDownloadSearchQuery: "",
     batchDownloadRequestId: 0,
     batchDownloadOutputValues: null,
+    batchDownloadDownloads: [],
     batchDownloadTab: "url",
     batchDownloadTemplates: [],
     transfers: new Map(),
@@ -459,6 +462,7 @@
         : "URLには認証情報が含まれます。有効期限内は第三者に共有しないでください。";
       $("#curl-command").textContent = outputs.curl;
       $("#wget-command").textContent = outputs.wget;
+      $("#aria2-command").textContent = outputs.aria2;
       $("#download-dialog").showModal();
     } catch (error) {
       toast(error.message, "error");
@@ -840,7 +844,25 @@
       button.classList.toggle("active", active);
       button.setAttribute("aria-selected", String(active));
     });
+    $("#batch-aria2-settings").classList.toggle("hidden", tab !== "aria2");
     $("#batch-result-content").textContent = state.batchDownloadOutputValues?.[tab] || "";
+  }
+
+  function updateBatchAria2Command(normalizeInput = false) {
+    const input = $("#batch-aria2-connections");
+    const requested = Number.parseInt(input.value, 10);
+    const connections = normalizeAria2Connections(input.value);
+    if (normalizeInput || (Number.isFinite(requested) && requested !== connections)) {
+      input.value = String(connections);
+    }
+    if (!state.batchDownloadOutputValues) return;
+    state.batchDownloadOutputValues.aria2 = buildAria2Command(
+      state.batchDownloadDownloads,
+      connections,
+    );
+    if (state.batchDownloadTab === "aria2") {
+      $("#batch-result-content").textContent = state.batchDownloadOutputValues.aria2;
+    }
   }
 
   async function generateBatchDownloadInfo() {
@@ -853,7 +875,9 @@
         method: "POST",
         data: { bucket: state.bucket, keys },
       });
-      state.batchDownloadOutputValues = buildDownloadOutputs(result.downloads);
+      state.batchDownloadDownloads = result.downloads;
+      $("#batch-aria2-connections").value = "3";
+      state.batchDownloadOutputValues = buildDownloadOutputs(result.downloads, 3);
       const publicUrls = result.downloads.every((item) => item.public);
       const expiresIn = result.downloads.find((item) => !item.public)?.expires_in;
       $("#batch-download-count").textContent = `${result.downloads.length}件のファイル`;
@@ -1381,6 +1405,8 @@
     document.querySelectorAll(".batch-result-tab").forEach((button) => button.addEventListener("click", () => {
       showBatchResultTab(button.dataset.batchTab);
     }));
+    $("#batch-aria2-connections").addEventListener("input", () => updateBatchAria2Command());
+    $("#batch-aria2-connections").addEventListener("change", () => updateBatchAria2Command(true));
     $("#copy-batch-result").addEventListener("click", () => {
       copyText(state.batchDownloadOutputValues?.[state.batchDownloadTab] || "");
     });

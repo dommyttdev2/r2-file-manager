@@ -211,6 +211,8 @@
       <div class="command-row"><code id="curl-command"></code><button type="button" class="secondary-button copy-button" data-copy-target="curl-command">コピー</button></div>
       <label class="command-label">wget</label>
       <div class="command-row"><code id="wget-command"></code><button type="button" class="secondary-button copy-button" data-copy-target="wget-command">コピー</button></div>
+      <label class="command-label">aria2c</label>
+      <div class="command-row"><code id="aria2-command"></code><button type="button" class="secondary-button copy-button" data-copy-target="aria2-command">コピー</button></div>
     </form>
   </dialog>
 
@@ -280,6 +282,12 @@
         <button type="button" class="batch-result-tab active" data-batch-tab="url" role="tab" aria-selected="true">URL</button>
         <button type="button" class="batch-result-tab" data-batch-tab="curl" role="tab" aria-selected="false">curl</button>
         <button type="button" class="batch-result-tab" data-batch-tab="wget" role="tab" aria-selected="false">wget</button>
+        <button type="button" class="batch-result-tab" data-batch-tab="aria2" role="tab" aria-selected="false">aria2c</button>
+      </div>
+      <div id="batch-aria2-settings" class="batch-aria2-settings hidden">
+        <label for="batch-aria2-connections">1ファイルあたりの接続数（-x）</label>
+        <input id="batch-aria2-connections" type="number" min="1" max="16" step="1" value="3" inputmode="numeric">
+        <small>1～16で指定できます。複数ファイルは最大3件ずつ同時にダウンロードします（-j3）。</small>
       </div>
       <div class="command-row batch-command-row"><code id="batch-result-content"></code></div>
       <div class="batch-result-actions"><button id="copy-batch-result" type="button" class="secondary-button">すべてコピー</button></div>

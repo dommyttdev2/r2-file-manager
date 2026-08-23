@@ -4,13 +4,14 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
   addSelection,
+  buildAria2Command,
   buildDownloadOutputs,
   formatBatchTotalSize,
   selectVisible,
   uniqueDownloadNames,
 } = require("../r2_file_manager/static/download_utils.js");
 
-test("URL, curl, wget use the same URLs and collision-free output names", () => {
+test("URL, curl, wget, and aria2 use the same URLs", () => {
   const downloads = [
     { key: "models/a/model.bin", url: "https://example.test/a?sig=one" },
     { key: "models/b/model.bin", url: "https://example.test/b?sig=two" },
@@ -34,7 +35,22 @@ test("URL, curl, wget use the same URLs and collision-free output names", () => 
       "wget --output-document='model (2).bin' 'https://example.test/b?sig=two'",
       "wget --output-document='model (3).bin' 'https://example.test/c?sig=three'",
     ].join("\n"),
+    aria2: "aria2c -j3 -x3 'https://example.test/a?sig=one' 'https://example.test/b?sig=two' 'https://example.test/c?sig=three'",
   });
+});
+
+test("aria2 connection count is configurable and clamped to its supported range", () => {
+  const downloads = [
+    { key: "one.bin", url: "https://example.test/one?x=1&y=2" },
+    { key: "two.bin", url: "https://example.test/two?x=3&y=4" },
+  ];
+
+  assert.equal(
+    buildAria2Command(downloads, 8),
+    "aria2c -j3 -x8 'https://example.test/one?x=1&y=2' 'https://example.test/two?x=3&y=4'",
+  );
+  assert.match(buildAria2Command(downloads, 99), /^aria2c -j3 -x16 /);
+  assert.match(buildAria2Command(downloads, 0), /^aria2c -j3 -x1 /);
 });
 
 test("selection survives changing visible folders and is capped at 500", () => {
