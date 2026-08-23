@@ -217,6 +217,25 @@
   <dialog id="batch-selection-dialog" class="modal batch-selection-modal">
     <div class="modal-shell">
       <div class="modal-header"><div><p class="eyebrow">BATCH DOWNLOAD</p><h2>一括ダウンロードするファイルを選択</h2></div><button type="button" class="modal-close" aria-label="閉じる">×</button></div>
+      <section class="batch-template-section" aria-label="一括ダウンロードテンプレート">
+        <div class="batch-template-heading">
+          <div><strong>テンプレート</strong><small>このバケットの選択内容を保存・再利用できます</small></div>
+          <button id="show-batch-template-create" type="button" class="link-button" disabled>現在の選択を新規保存</button>
+        </div>
+        <div class="batch-template-controls">
+          <select id="batch-template-select" aria-label="一括ダウンロードテンプレート">
+            <option value="">テンプレートを選択...</option>
+          </select>
+          <button id="load-batch-template" type="button" class="secondary-button" disabled>読み込む</button>
+          <button id="overwrite-batch-template" type="button" class="secondary-button" disabled>現在の選択で上書き</button>
+          <button id="delete-batch-template" type="button" class="danger-secondary" disabled>削除</button>
+        </div>
+        <form id="batch-template-create-form" class="batch-template-create-form hidden">
+          <input id="batch-template-name" type="text" maxlength="100" autocomplete="off" placeholder="テンプレート名" aria-label="テンプレート名" required>
+          <button type="submit" class="primary-button">保存</button>
+          <button id="cancel-batch-template-create" type="button" class="secondary-button">キャンセル</button>
+        </form>
+      </section>
       <section class="batch-browser" aria-label="ファイルブラウザ">
         <nav id="batch-breadcrumbs" class="breadcrumbs batch-breadcrumbs" aria-label="一括ダウンロードの現在の場所"></nav>
         <form id="batch-search-form" class="batch-search-form" role="search">

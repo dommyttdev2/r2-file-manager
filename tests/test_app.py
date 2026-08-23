@@ -258,6 +258,77 @@ def test_object_search_rejects_empty_query(tmp_path):
     assert response.status_code == 400
 
 
+def test_batch_download_template_endpoints(tmp_path):
+    client, store, headers = make_client(tmp_path)
+    store.save(
+        {"name": "Test R2", "account_id": "a" * 32, "access_key_id": "access", "public_url": ""},
+        "secret",
+    )
+    template_objects = [
+        {
+            "key": "checkpoints/model.bin",
+            "name": "model.bin",
+            "size": 42,
+            "last_modified": None,
+            "storage_class": "STANDARD",
+        }
+    ]
+
+    created_response = client.post(
+        "/api/batch-download-templates",
+        headers=headers,
+        json={"bucket": "models", "name": "Favorites", "objects": template_objects},
+    )
+    assert created_response.status_code == 201
+    created = created_response.get_json()["template"]
+
+    listed_response = client.get(
+        "/api/batch-download-templates?bucket=models",
+        headers=headers,
+    )
+    assert listed_response.status_code == 200
+    assert listed_response.get_json()["templates"] == [created]
+    assert listed_response.cache_control.no_store
+
+    updated_response = client.put(
+        f"/api/batch-download-templates/{created['id']}",
+        headers=headers,
+        json={
+            "bucket": "models",
+            "name": "Favorites updated",
+            "objects": [{**template_objects[0], "key": "loras/updated.bin"}],
+        },
+    )
+    assert updated_response.status_code == 200
+    assert updated_response.get_json()["template"]["name"] == "Favorites updated"
+
+    deleted_response = client.delete(
+        f"/api/batch-download-templates/{created['id']}?bucket=models",
+        headers=headers,
+    )
+    assert deleted_response.status_code == 200
+    assert client.get(
+        "/api/batch-download-templates?bucket=models",
+        headers=headers,
+    ).get_json() == {"templates": []}
+
+
+def test_batch_download_template_api_rejects_empty_selection(tmp_path):
+    client, store, headers = make_client(tmp_path)
+    store.save(
+        {"name": "Test R2", "account_id": "a" * 32, "access_key_id": "access", "public_url": ""},
+        "secret",
+    )
+
+    response = client.post(
+        "/api/batch-download-templates",
+        headers=headers,
+        json={"bucket": "models", "name": "Empty", "objects": []},
+    )
+
+    assert response.status_code == 400
+
+
 def test_move_object_endpoint(tmp_path):
     client, store, headers = make_client(tmp_path)
     store.save(

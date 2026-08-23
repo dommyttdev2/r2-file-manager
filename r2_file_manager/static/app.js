@@ -23,6 +23,7 @@
     batchDownloadRequestId: 0,
     batchDownloadOutputValues: null,
     batchDownloadTab: "url",
+    batchDownloadTemplates: [],
     transfers: new Map(),
     moveJobs: new Map(),
     pendingFiles: [],
@@ -495,7 +496,10 @@
     state.batchDownloadPrefix = "";
     state.batchDownloadNextToken = null;
     state.batchDownloadSearchQuery = "";
+    state.batchDownloadTemplates = [];
     hideInline("#batch-selection-message");
+    hideBatchTemplateCreate();
+    renderBatchTemplateOptions();
     renderBatchSelection();
   }
 
@@ -506,7 +510,151 @@
     $("#batch-search-input").value = "";
     renderBatchBreadcrumbs();
     $("#batch-selection-dialog").showModal();
-    await loadBatchObjects(false);
+    await Promise.all([loadBatchTemplates(), loadBatchObjects(false)]);
+  }
+
+  function templateObjectsPayload() {
+    return [...state.batchDownloadSelected.values()].map((object) => ({
+      key: object.key,
+      name: object.name,
+      size: object.size,
+      last_modified: object.last_modified,
+      storage_class: object.storage_class,
+    }));
+  }
+
+  function selectedBatchTemplate() {
+    const templateId = $("#batch-template-select").value;
+    return state.batchDownloadTemplates.find((template) => template.id === templateId) || null;
+  }
+
+  function updateBatchTemplateControls() {
+    const templateSelected = Boolean(selectedBatchTemplate());
+    const filesSelected = state.batchDownloadSelected.size > 0;
+    $("#load-batch-template").disabled = !templateSelected;
+    $("#overwrite-batch-template").disabled = !templateSelected || !filesSelected;
+    $("#delete-batch-template").disabled = !templateSelected;
+    $("#show-batch-template-create").disabled = !filesSelected;
+  }
+
+  function renderBatchTemplateOptions(selectedId = "") {
+    const select = $("#batch-template-select");
+    select.innerHTML = '<option value="">テンプレートを選択...</option>';
+    for (const template of state.batchDownloadTemplates) {
+      const option = document.createElement("option");
+      option.value = template.id;
+      option.textContent = `${template.name}（${template.objects.length}件）`;
+      select.append(option);
+    }
+    if (selectedId && state.batchDownloadTemplates.some((item) => item.id === selectedId)) {
+      select.value = selectedId;
+    }
+    updateBatchTemplateControls();
+  }
+
+  async function loadBatchTemplates(selectedId = "") {
+    try {
+      const params = new URLSearchParams({ bucket: state.bucket });
+      const result = await api(`/api/batch-download-templates?${params}`);
+      state.batchDownloadTemplates = result.templates;
+      renderBatchTemplateOptions(selectedId);
+    } catch (error) {
+      showInline("#batch-selection-message", error.message);
+    }
+  }
+
+  function showBatchTemplateCreate() {
+    if (state.batchDownloadSelected.size === 0) return;
+    $("#batch-template-create-form").classList.remove("hidden");
+    $("#batch-template-name").value = "";
+    $("#batch-template-name").focus();
+  }
+
+  function hideBatchTemplateCreate() {
+    $("#batch-template-create-form").classList.add("hidden");
+    $("#batch-template-name").value = "";
+  }
+
+  async function createBatchTemplate(event) {
+    event.preventDefault();
+    const name = $("#batch-template-name").value.trim();
+    const button = event.currentTarget.querySelector('button[type="submit"]');
+    try {
+      setBusy(button, true, "保存中…");
+      const result = await api("/api/batch-download-templates", {
+        method: "POST",
+        data: { bucket: state.bucket, name, objects: templateObjectsPayload() },
+      });
+      hideBatchTemplateCreate();
+      await loadBatchTemplates(result.template.id);
+      toast(`テンプレート「${result.template.name}」を保存しました。`);
+    } catch (error) {
+      showInline("#batch-selection-message", error.message);
+    } finally {
+      setBusy(button, false);
+    }
+  }
+
+  function loadSelectedBatchTemplate() {
+    const template = selectedBatchTemplate();
+    if (!template) return;
+    state.batchDownloadSelected.clear();
+    for (const object of template.objects) addSelection(state.batchDownloadSelected, object);
+    renderBatchSelection();
+    toast(`テンプレート「${template.name}」を読み込みました。`);
+  }
+
+  async function overwriteSelectedBatchTemplate() {
+    const template = selectedBatchTemplate();
+    if (!template || state.batchDownloadSelected.size === 0) return;
+    const confirmed = await confirmAction(
+      "テンプレートを上書き",
+      `「${template.name}」を現在の${state.batchDownloadSelected.size}件で上書きしますか？`,
+      "上書き",
+    );
+    if (!confirmed) return;
+    const button = $("#overwrite-batch-template");
+    try {
+      setBusy(button, true, "保存中…");
+      const result = await api(`/api/batch-download-templates/${encodeURIComponent(template.id)}`, {
+        method: "PUT",
+        data: {
+          bucket: state.bucket,
+          name: template.name,
+          objects: templateObjectsPayload(),
+        },
+      });
+      await loadBatchTemplates(result.template.id);
+      toast(`テンプレート「${result.template.name}」を更新しました。`);
+    } catch (error) {
+      showInline("#batch-selection-message", error.message);
+    } finally {
+      setBusy(button, false);
+    }
+  }
+
+  async function deleteSelectedBatchTemplate() {
+    const template = selectedBatchTemplate();
+    if (!template) return;
+    const confirmed = await confirmAction(
+      "テンプレートを削除",
+      `「${template.name}」を削除しますか？\nこの操作は取り消せません。`,
+    );
+    if (!confirmed) return;
+    const button = $("#delete-batch-template");
+    try {
+      setBusy(button, true, "削除中…");
+      const params = new URLSearchParams({ bucket: state.bucket });
+      await api(`/api/batch-download-templates/${encodeURIComponent(template.id)}?${params}`, {
+        method: "DELETE",
+      });
+      await loadBatchTemplates();
+      toast(`テンプレート「${template.name}」を削除しました。`);
+    } catch (error) {
+      showInline("#batch-selection-message", error.message);
+    } finally {
+      setBusy(button, false);
+    }
   }
 
   function renderBatchBreadcrumbs() {
@@ -632,6 +780,7 @@
     const generate = $("#generate-batch-download");
     generate.disabled = selected.length === 0;
     generate.textContent = selected.length === 0 ? "URLを生成" : `${selected.length}件のURLを生成`;
+    updateBatchTemplateControls();
     const list = $("#batch-selected-list");
     list.innerHTML = "";
     if (selected.length === 0) {
@@ -1209,6 +1358,13 @@
     uploadDropArea.addEventListener("drop", (event) => { event.preventDefault(); uploadDropArea.classList.remove("dragging"); addCandidateFiles(event.dataTransfer.files); });
     $("#load-more").addEventListener("click", () => loadObjects(true));
     $("#open-batch-download").addEventListener("click", openBatchDownloadDialog);
+    $("#batch-template-select").addEventListener("change", updateBatchTemplateControls);
+    $("#show-batch-template-create").addEventListener("click", showBatchTemplateCreate);
+    $("#cancel-batch-template-create").addEventListener("click", hideBatchTemplateCreate);
+    $("#batch-template-create-form").addEventListener("submit", createBatchTemplate);
+    $("#load-batch-template").addEventListener("click", loadSelectedBatchTemplate);
+    $("#overwrite-batch-template").addEventListener("click", overwriteSelectedBatchTemplate);
+    $("#delete-batch-template").addEventListener("click", deleteSelectedBatchTemplate);
     $("#batch-search-form").addEventListener("submit", searchBatchObjects);
     $("#clear-batch-search").addEventListener("click", clearBatchSearch);
     $("#batch-load-more").addEventListener("click", () => loadBatchObjects(true));

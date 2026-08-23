@@ -12,6 +12,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 from flask import Flask, jsonify, render_template, request
 
 from .config import ConfigStore, ConnectionSettings, validate_settings
+from .download_templates import BatchDownloadTemplateStore
 from .metrics import fetch_account_metrics
 from .r2 import R2Service
 from .uploads import UploadRegistry
@@ -54,6 +55,9 @@ def create_app(
     app.config.update(JSON_AS_ASCII=False)
     store = config_store or ConfigStore(data_dir=data_dir)
     registry = UploadRegistry(store.data_dir / "uploads.json")
+    template_store = BatchDownloadTemplateStore(
+        store.data_dir / "batch_download_templates.json"
+    )
     api_token = secrets.token_urlsafe(32)
     move_jobs: dict[str, dict[str, Any]] = {}
     move_jobs_lock = threading.Lock()
@@ -271,6 +275,39 @@ def create_app(
         response = jsonify(downloads=downloads)
         response.cache_control.no_store = True
         return response
+
+    @app.get("/api/batch-download-templates")
+    def list_batch_download_templates():
+        bucket = request.args.get("bucket", "")
+        response = jsonify(templates=template_store.list(bucket))
+        response.cache_control.no_store = True
+        return response
+
+    @app.post("/api/batch-download-templates")
+    def create_batch_download_template():
+        values = _json()
+        template = template_store.create(
+            bucket=str(values.get("bucket") or ""),
+            name=str(values.get("name") or ""),
+            objects=values.get("objects"),
+        )
+        return jsonify(template=template), 201
+
+    @app.put("/api/batch-download-templates/<template_id>")
+    def update_batch_download_template(template_id: str):
+        values = _json()
+        template = template_store.update(
+            template_id,
+            bucket=str(values.get("bucket") or ""),
+            name=str(values.get("name") or ""),
+            objects=values.get("objects"),
+        )
+        return jsonify(template=template)
+
+    @app.delete("/api/batch-download-templates/<template_id>")
+    def delete_batch_download_template(template_id: str):
+        template_store.delete(template_id, bucket=request.args.get("bucket", ""))
+        return jsonify(ok=True)
 
     @app.post("/api/objects/move")
     def move_object():

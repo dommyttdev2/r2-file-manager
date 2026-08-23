@@ -20,7 +20,7 @@
 
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 760px; background: var(--bg); color: var(--text); font-size: 14px; }
-button, input { font: inherit; }
+button, input, select { font: inherit; }
 button { cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: .55; }
 .hidden { display: none !important; }
@@ -169,6 +169,14 @@ label small { display: block; margin-top: 5px; color: var(--muted); font-weight:
 .batch-selection-modal { width: min(1040px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: hidden; }
 .batch-selection-modal .modal-shell { max-height: calc(100vh - 34px); display: flex; flex-direction: column; overflow: hidden; }
 .batch-selection-modal .modal-header { flex: 0 0 auto; margin-bottom: 14px; }
+.batch-template-section { margin-bottom: 12px; padding: 11px 12px; flex: 0 0 auto; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; }
+.batch-template-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.batch-template-heading strong, .batch-template-heading small { display: block; }
+.batch-template-heading small { margin-top: 2px; color: var(--muted); font-weight: 400; }
+.batch-template-controls, .batch-template-create-form { display: flex; align-items: center; gap: 7px; margin-top: 9px; }
+.batch-template-controls select { min-width: 220px; height: 38px; flex: 1; padding: 0 10px; color: var(--text); background: var(--surface); border: 1px solid var(--border-strong); border-radius: 7px; }
+.batch-template-controls .secondary-button, .batch-template-controls .danger-secondary { min-height: 38px; padding: 0 11px; border-radius: 8px; font-weight: 650; white-space: nowrap; }
+.batch-template-create-form input { min-width: 0; flex: 1; margin-top: 0; }
 .batch-browser { min-height: 240px; flex: 1 1 auto; display: flex; flex-direction: column; overflow: hidden; }
 .batch-breadcrumbs { min-height: 34px; flex: 0 0 auto; }
 .batch-search-form { margin-top: 8px; display: flex; align-items: center; gap: 8px; }
