@@ -35,7 +35,7 @@ test("URL, curl, wget, and aria2 use the same URLs", () => {
       "wget --output-document='model (2).bin' 'https://example.test/b?sig=two'",
       "wget --output-document='model (3).bin' 'https://example.test/c?sig=three'",
     ].join("\n"),
-    aria2: "aria2c -j3 -x3 'https://example.test/a?sig=one' 'https://example.test/b?sig=two' 'https://example.test/c?sig=three'",
+    aria2: "aria2c -j3 -x3 -Z 'https://example.test/a?sig=one' 'https://example.test/b?sig=two' 'https://example.test/c?sig=three'",
   });
 });
 
@@ -47,10 +47,14 @@ test("aria2 connection count is configurable and clamped to its supported range"
 
   assert.equal(
     buildAria2Command(downloads, 8),
-    "aria2c -j3 -x8 'https://example.test/one?x=1&y=2' 'https://example.test/two?x=3&y=4'",
+    "aria2c -j3 -x8 -Z 'https://example.test/one?x=1&y=2' 'https://example.test/two?x=3&y=4'",
   );
-  assert.match(buildAria2Command(downloads, 99), /^aria2c -j3 -x16 /);
-  assert.match(buildAria2Command(downloads, 0), /^aria2c -j3 -x1 /);
+  assert.match(buildAria2Command(downloads, 99), /^aria2c -j3 -x16 -Z /);
+  assert.match(buildAria2Command(downloads, 0), /^aria2c -j3 -x1 -Z /);
+  assert.equal(
+    buildAria2Command([downloads[0]], 3),
+    "aria2c -j3 -x3 'https://example.test/one?x=1&y=2'",
+  );
 });
 
 test("selection survives changing visible folders and is capped at 500", () => {

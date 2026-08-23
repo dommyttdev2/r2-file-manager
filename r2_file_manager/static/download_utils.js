@@ -36,7 +36,8 @@
   function buildAria2Command(downloads, connections = 3) {
     if (!Array.isArray(downloads) || downloads.length === 0) return "";
     const urls = downloads.map((item) => shellQuote(item.url)).join(" ");
-    return `aria2c -j3 -x${normalizeAria2Connections(connections)} ${urls}`;
+    const separateDownloads = downloads.length > 1 ? " -Z" : "";
+    return `aria2c -j3 -x${normalizeAria2Connections(connections)}${separateDownloads} ${urls}`;
   }
 
   function buildDownloadOutputs(downloads, aria2Connections = 3) {
