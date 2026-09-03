@@ -9,6 +9,7 @@
     buildDownloadOutputs,
     formatBatchTotalSize,
     normalizeAria2Connections,
+    normalizeAria2ConcurrentDownloads,
     selectVisible,
   } = globalThis.R2DownloadUtils;
   const state = {
@@ -849,16 +850,23 @@
   }
 
   function updateBatchAria2Command(normalizeInput = false) {
-    const input = $("#batch-aria2-connections");
-    const requested = Number.parseInt(input.value, 10);
-    const connections = normalizeAria2Connections(input.value);
-    if (normalizeInput || (Number.isFinite(requested) && requested !== connections)) {
-      input.value = String(connections);
+    const connectionsInput = $("#batch-aria2-connections");
+    const concurrentInput = $("#batch-aria2-concurrent-downloads");
+    const requestedConnections = Number.parseInt(connectionsInput.value, 10);
+    const requestedConcurrent = Number.parseInt(concurrentInput.value, 10);
+    const connections = normalizeAria2Connections(connectionsInput.value);
+    const concurrentDownloads = normalizeAria2ConcurrentDownloads(concurrentInput.value);
+    if (normalizeInput || (Number.isFinite(requestedConnections) && requestedConnections !== connections)) {
+      connectionsInput.value = String(connections);
+    }
+    if (normalizeInput || (Number.isFinite(requestedConcurrent) && requestedConcurrent !== concurrentDownloads)) {
+      concurrentInput.value = String(concurrentDownloads);
     }
     if (!state.batchDownloadOutputValues) return;
     state.batchDownloadOutputValues.aria2 = buildAria2Command(
       state.batchDownloadDownloads,
       connections,
+      concurrentDownloads,
     );
     if (state.batchDownloadTab === "aria2") {
       $("#batch-result-content").textContent = state.batchDownloadOutputValues.aria2;
@@ -877,7 +885,8 @@
       });
       state.batchDownloadDownloads = result.downloads;
       $("#batch-aria2-connections").value = "3";
-      state.batchDownloadOutputValues = buildDownloadOutputs(result.downloads, 3);
+      $("#batch-aria2-concurrent-downloads").value = "3";
+      state.batchDownloadOutputValues = buildDownloadOutputs(result.downloads, 3, 3);
       const publicUrls = result.downloads.every((item) => item.public);
       const expiresIn = result.downloads.find((item) => !item.public)?.expires_in;
       $("#batch-download-count").textContent = `${result.downloads.length}件のファイル`;
@@ -1407,6 +1416,8 @@
     }));
     $("#batch-aria2-connections").addEventListener("input", () => updateBatchAria2Command());
     $("#batch-aria2-connections").addEventListener("change", () => updateBatchAria2Command(true));
+    $("#batch-aria2-concurrent-downloads").addEventListener("input", () => updateBatchAria2Command());
+    $("#batch-aria2-concurrent-downloads").addEventListener("change", () => updateBatchAria2Command(true));
     $("#copy-batch-result").addEventListener("click", () => {
       copyText(state.batchDownloadOutputValues?.[state.batchDownloadTab] || "");
     });

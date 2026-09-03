@@ -285,9 +285,11 @@
         <button type="button" class="batch-result-tab" data-batch-tab="aria2" role="tab" aria-selected="false">aria2c</button>
       </div>
       <div id="batch-aria2-settings" class="batch-aria2-settings hidden">
+        <label for="batch-aria2-concurrent-downloads">同時ダウンロード数（-j）</label>
+        <input id="batch-aria2-concurrent-downloads" type="number" min="1" max="16" step="1" value="3" inputmode="numeric">
         <label for="batch-aria2-connections">1ファイルあたりの接続数（-x）</label>
         <input id="batch-aria2-connections" type="number" min="1" max="16" step="1" value="3" inputmode="numeric">
-        <small>1～16で指定できます。複数URLは別ファイルとして扱い（-Z）、最大3件ずつ同時にダウンロードします（-j3）。</small>
+        <small>各項目は1～16で指定できます。既に同名ファイルがある場合はスキップします。</small>
       </div>
       <div class="command-row batch-command-row"><code id="batch-result-content"></code></div>
       <div class="batch-result-actions"><button id="copy-batch-result" type="button" class="secondary-button">すべてコピー</button></div>

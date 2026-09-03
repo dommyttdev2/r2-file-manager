@@ -35,7 +35,7 @@ test("URL, curl, wget, and aria2 use the same URLs", () => {
       "wget --output-document='model (2).bin' 'https://example.test/b?sig=two'",
       "wget --output-document='model (3).bin' 'https://example.test/c?sig=three'",
     ].join("\n"),
-    aria2: "aria2c -j3 -x3 -Z 'https://example.test/a?sig=one' 'https://example.test/b?sig=two' 'https://example.test/c?sig=three'",
+    aria2: "aria2c --allow-overwrite=false --auto-file-renaming=false -j3 -x3 -Z 'https://example.test/a?sig=one' 'https://example.test/b?sig=two' 'https://example.test/c?sig=three'",
   });
 });
 
@@ -47,14 +47,25 @@ test("aria2 connection count is configurable and clamped to its supported range"
 
   assert.equal(
     buildAria2Command(downloads, 8),
-    "aria2c -j3 -x8 -Z 'https://example.test/one?x=1&y=2' 'https://example.test/two?x=3&y=4'",
+    "aria2c --allow-overwrite=false --auto-file-renaming=false -j3 -x8 -Z 'https://example.test/one?x=1&y=2' 'https://example.test/two?x=3&y=4'",
   );
-  assert.match(buildAria2Command(downloads, 99), /^aria2c -j3 -x16 -Z /);
-  assert.match(buildAria2Command(downloads, 0), /^aria2c -j3 -x1 -Z /);
+  assert.match(buildAria2Command(downloads, 99), /^aria2c --allow-overwrite=false --auto-file-renaming=false -j3 -x16 -Z /);
+  assert.match(buildAria2Command(downloads, 0), /^aria2c --allow-overwrite=false --auto-file-renaming=false -j3 -x1 -Z /);
   assert.equal(
     buildAria2Command([downloads[0]], 3),
-    "aria2c -j3 -x3 'https://example.test/one?x=1&y=2'",
+    "aria2c --allow-overwrite=false --auto-file-renaming=false -j3 -x3 'https://example.test/one?x=1&y=2'",
   );
+});
+
+test("aria2 concurrent download count is configurable and clamped", () => {
+  const downloads = [
+    { key: "one.bin", url: "https://example.test/one" },
+    { key: "two.bin", url: "https://example.test/two" },
+  ];
+
+  assert.match(buildAria2Command(downloads, 3, 8), /^aria2c --allow-overwrite=false --auto-file-renaming=false -j8 -x3 -Z /);
+  assert.match(buildAria2Command(downloads, 3, 99), /^aria2c --allow-overwrite=false --auto-file-renaming=false -j16 -x3 -Z /);
+  assert.match(buildAria2Command(downloads, 3, 0), /^aria2c --allow-overwrite=false --auto-file-renaming=false -j1 -x3 -Z /);
 });
 
 test("selection survives changing visible folders and is capped at 500", () => {
