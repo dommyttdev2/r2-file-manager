@@ -1,46 +1,48 @@
 # R2 File Manager
 
+English | [日本語](README.ja.md)
+
 > [!IMPORTANT]
 > このStandaloneアプリの主要機能は `dommyttdev2/comfyui-batch-studio` の **モデル配置 / R2ファイル管理** へ統合されました。新規のComfyUI Batch Studio運用では、R2管理の正本はBatch Studio側です。このrepositoryはStandalone版・移行元・既存利用者向けとして維持します。
 
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Cloudflare R2](https://img.shields.io/badge/Cloudflare-R2-F38020?logo=cloudflare&logoColor=white)](https://developers.cloudflare.com/r2/)
 
-Cloudflare R2 をブラウザから操作する、Windows 向けのローカルファイルマネージャーです。バケットやオブジェクトの管理、大容量ファイルのマルチパートアップロード、ダウンロード URL の一括生成を、Cloudflare Dashboard を行き来せずに実行できます。
+R2 File Manager is a local, Windows-focused browser interface for Cloudflare R2. It lets you manage buckets and objects, upload large files with multipart uploads, and generate batch download URLs without repeatedly switching to the Cloudflare Dashboard.
 
-アップロード時はブラウザでファイルを分割し、ローカルサーバー経由で R2 へ順次転送します。ファイル全体の一時コピーを作らないため、数 GB のファイルもローカルディスク容量を圧迫せずに扱えます。
+During an upload, the browser splits the file into parts and transfers them to R2 through the local server. Because the application never creates a temporary copy of the entire file, it can handle multi-gigabyte files without consuming the same amount of extra disk space.
 
 > [!IMPORTANT]
-> このアプリはローカル利用を前提としています。サーバーは `127.0.0.1` のみにバインドされ、LAN やインターネットへ公開する機能はありません。
+> This application is intended for local use. The server binds only to `127.0.0.1` and does not provide a way to expose itself to your LAN or the internet.
 
-## 主な機能
+## Features
 
-- R2 接続情報のテストと安全な保存
-- バケットの一覧・作成・空バケットの削除
-- フォルダー形式のオブジェクト一覧と、バケット全体のファイル名検索
-- ドラッグ＆ドロップ対応の並列マルチパートアップロード
-- アップロードの一時停止・再試行・キャンセル・アプリ再起動後の再開
-- オブジェクトのダウンロード・移動・名前変更・複数選択削除
-- 公開 URL または有効期限付き署名 URL の生成
-- URL、`curl`、`wget`、`aria2c` コマンドの一括生成
-- 一括ダウンロード対象を名前付きテンプレートとして保存・再利用
-- アカウント全体のストレージ使用量とオブジェクト数の表示（任意）
-- CLI からのバケット・オブジェクト一覧取得
+- Test and securely save R2 connection settings
+- List, create, and delete empty buckets
+- Browse objects as folders and search in real time using a local index
+- Upload files with drag-and-drop and parallel multipart transfers
+- Pause, retry, cancel, and resume uploads after restarting the application
+- Download, move, rename, and bulk-delete objects
+- Generate public URLs or time-limited presigned URLs
+- Generate URL lists and `curl`, `wget`, or `aria2c` commands in batches
+- Save and reuse named batch-download templates
+- Display account-wide storage usage and object counts (optional)
+- List buckets and objects from the CLI
 
-## 必要なもの
+## Requirements
 
 - Windows
-- Python 3.11 以上
-- Cloudflare R2 を有効化したアカウント
-- R2 の Access Key ID と Secret Access Key
+- Python 3.11 or later
+- A Cloudflare account with R2 enabled
+- An R2 Access Key ID and Secret Access Key
 
-R2 の認証情報は、Cloudflare Dashboard の **R2 Object Storage → Overview → API Tokens** から作成できます。バケットの一覧・作成・削除を含むすべての機能を使う場合は `Admin Read & Write` が必要です。詳細は [Cloudflare R2 の認証ドキュメント](https://developers.cloudflare.com/r2/api/tokens/) を参照してください。
+Create R2 credentials in the Cloudflare Dashboard under **R2 Object Storage → Overview → API Tokens**. The full feature set, including listing, creating, and deleting buckets, requires `Admin Read & Write`. See the [Cloudflare R2 authentication documentation](https://developers.cloudflare.com/r2/api/tokens/) for details.
 
-Secret Access Key は作成直後にしか表示されないため、安全な場所へ控えてください。
+The Secret Access Key is displayed only immediately after creation. Store it somewhere secure.
 
-## クイックスタート
+## Quick start
 
-PowerShell で次のコマンドを実行します。
+Run the following commands in PowerShell:
 
 ```powershell
 git clone https://github.com/toshiki-takedomi/r2-file-manager.git
@@ -51,77 +53,77 @@ python -m pip install -e .
 python -m r2_file_manager
 ```
 
-ブラウザで `http://127.0.0.1:8877` が自動的に開きます。8877 番ポートが使用中の場合は、次の空きポートを自動選択します。
+The application automatically opens `http://127.0.0.1:8877` in your browser. If port 8877 is already in use, it selects the next available port.
 
-初回起動後、右上の設定ボタンから次の値を入力してください。
+On the first launch, open the settings dialog from the button in the upper-right corner and enter:
 
 1. Cloudflare Account ID
 2. R2 Access Key ID
 3. R2 Secret Access Key
-4. Public URL（公開バケットまたはカスタムドメインを使う場合のみ）
-5. Cloudflare API Token（ストレージ使用量を表示する場合のみ）
+4. Public URL (only for a public bucket or custom domain)
+5. Cloudflare API Token (only for displaying storage usage)
 
-接続テストが成功したら設定を保存します。
+Test the connection, then save the settings.
 
-## GUI の起動方法
+## Launching the GUI
 
-セットアップが完了した環境では、PowerShell を開いてプロジェクトのディレクトリへ移動し、次のコマンドを実行します。
+After setup, open PowerShell in the project directory and run:
 
 ```powershell
 .\.venv\Scripts\Activate.ps1
 r2-file-manager
 ```
 
-または、仮想環境を有効化せずに直接起動できます。
+You can also launch it directly without activating the virtual environment:
 
 ```powershell
 .\.venv\Scripts\r2-file-manager.exe
 ```
 
-起動すると既定のブラウザで GUI が自動的に開きます。自動的に開かない場合は、PowerShell に表示された `http://127.0.0.1:<ポート番号>` をブラウザで開いてください。
+The GUI opens automatically in your default browser. If it does not open, visit the `http://127.0.0.1:<port>` address displayed in PowerShell.
 
-アプリの使用中は PowerShell のウィンドウを閉じないでください。終了するには、PowerShell で `Ctrl+C` を押します。
+Keep the PowerShell window open while using the application. Press `Ctrl+C` in PowerShell to stop it.
 
 ## CLI
 
-インストール後は `r2-file-manager` コマンドも利用できます。サブコマンドを省略すると Web 画面を起動します。
+The `r2-file-manager` command is available after installation. Running it without a subcommand starts the web interface.
 
 ```powershell
-# ヘルプ
+# Show help
 r2-file-manager --help
 
-# Web画面を起動
+# Start the web interface
 r2-file-manager serve
 
-# バケット一覧
+# List buckets
 r2-file-manager list-buckets
 r2-file-manager list-buckets --json
 
-# バケット直下または指定プレフィックスの一覧
+# List the bucket root or a specific prefix
 r2-file-manager list-objects my-bucket
 r2-file-manager list-objects my-bucket --prefix images/
 
-# サブフォルダーを含む全オブジェクトをJSONで取得
+# Recursively list all objects as JSON
 r2-file-manager list-objects my-bucket --recursive --json
 ```
 
-各コマンドの詳細は `r2-file-manager <サブコマンド> --help` で確認できます。
+Run `r2-file-manager <subcommand> --help` for details about each command.
 
-## 環境変数
+## Environment variables
 
-接続情報は Web 画面から保存する代わりに、環境変数から読み込むこともできます。
+You can load connection settings from environment variables instead of saving them through the web interface.
 
-| 変数 | 必須 | 用途 |
+| Variable | Required | Purpose |
 | --- | --- | --- |
-| `R2_ACCOUNT_ID` | 接続時 | 32 文字の Cloudflare Account ID |
-| `R2_ACCESS_KEY` | 接続時 | R2 Access Key ID |
-| `R2_SECRET_ACCESS_KEY` | 接続時 | R2 Secret Access Key |
-| `R2_PUBLIC_URL` | 任意 | 公開バケットまたはカスタムドメインのベース URL |
-| `CLOUDFLARE_API_TOKEN` | 任意 | ストレージ使用量表示用の Cloudflare API Token |
-| `R2_FILE_MANAGER_PORT` | 任意 | Web 画面のポートを固定（1～65535） |
-| `R2_FILE_MANAGER_DATA_DIR` | 任意 | 設定・アップロード状態の保存先を変更 |
+| `R2_ACCOUNT_ID` | For connection | 32-character Cloudflare Account ID |
+| `R2_ACCESS_KEY` | For connection | R2 Access Key ID |
+| `R2_SECRET_ACCESS_KEY` | For connection | R2 Secret Access Key |
+| `R2_PUBLIC_URL` | Optional | Base URL for a public bucket or custom domain |
+| `CLOUDFLARE_API_TOKEN` | Optional | Cloudflare API Token used to display storage usage |
+| `R2_FILE_MANAGER_PORT` | Optional | Fixed web-interface port (1–65535) |
+| `R2_FILE_MANAGER_DATA_DIR` | Optional | Custom location for settings and upload state |
 
-PowerShell で現在のセッションに設定する例です。
+Example for the current PowerShell session:
 
 ```powershell
 $env:R2_ACCOUNT_ID = "your-account-id"
@@ -130,54 +132,55 @@ $env:R2_SECRET_ACCESS_KEY = "your-secret-access-key"
 r2-file-manager
 ```
 
-CLI は保存済みの接続設定を優先し、保存済み設定がない場合に環境変数を使用します。Web 画面では接続設定ダイアログの「環境変数から再読込」操作で値を反映できます。
+The CLI prefers saved connection settings and uses environment variables only when no saved settings exist. In the web interface, select **Reload from environment variables** in the connection settings dialog to populate the form.
 
-## 認証情報とローカルデータ
+## Credentials and local data
 
-- Secret Access Key と Cloudflare API Token は Windows 資格情報マネージャーへ保存します。
-- Secret は設定 JSON やログへ書き込みません。
-- 資格情報マネージャーを利用できない場合も、平文ファイルへフォールバック保存しません。
-- 通常設定は `%LOCALAPPDATA%\R2 File Manager\config.json` に保存します。
-- 未完了アップロードは `uploads.json`、一括ダウンロードテンプレートは `batch_download_templates.json` として同じディレクトリに保存します。
-- Web API は読み取り・変更の両方で、起動ごとに生成するリクエストトークンを要求します。
+- The Secret Access Key and Cloudflare API Token are stored in Windows Credential Manager.
+- Secrets are never written to the configuration JSON or application logs.
+- If Credential Manager is unavailable, the application does not fall back to storing secrets in plaintext.
+- Regular settings are stored in `%LOCALAPPDATA%\R2 File Manager\config.json`.
+- Incomplete uploads are stored in `uploads.json`, and batch-download templates are stored in `batch_download_templates.json` in the same directory.
+- Searchable object metadata is stored in `objects.sqlite3`. It is synchronized with every R2 bucket when the server starts and updated after in-app upload completion, moves, and deletions.
+- Both read and write Web API requests require a per-launch request token.
 
-ストレージ使用量は Cloudflare REST API から取得します。有効にする場合は、Account の R2 読み取り権限を持つ Cloudflare API Token を別途指定してください。S3 用の Secret Access Key と Cloudflare API Token は別の認証情報です。
+Storage usage is retrieved through the Cloudflare REST API. To enable it, provide a separate Cloudflare API Token with account-level R2 read access. The S3 Secret Access Key and the Cloudflare API Token are different credentials.
 
-## 制限事項
+## Limitations
 
-- 現在の R2 エンドポイントは標準 jurisdiction（`https://<ACCOUNT_ID>.r2.cloudflarestorage.com`）固定です。EU、FedRAMP、US jurisdiction 固有のバケットには対応していません。
-- 接続確認と初期画面でバケット一覧を取得するため、バケット単位の `Object Read & Write` 認証情報だけでは利用できません。
-- アップロード再開時は、ブラウザの制約により同じローカルファイルを再選択する必要があります。
-- バケット削除は空のバケットに限ります。
-- 一括ダウンロードは一度に最大 500 オブジェクトです。
-- Public URL を設定していない場合、生成する署名 URL の有効期限は 1 時間です。
+- The R2 endpoint is fixed to the default jurisdiction (`https://<ACCOUNT_ID>.r2.cloudflarestorage.com`). Buckets in the EU, FedRAMP, and US jurisdictions are not supported.
+- The application lists buckets during connection testing and on the initial screen, so bucket-scoped `Object Read & Write` credentials alone are not sufficient.
+- Resuming an upload requires selecting the same local file again because browsers do not retain file access across sessions.
+- Only empty buckets can be deleted.
+- A batch download can contain up to 500 objects.
+- When no Public URL is configured, generated presigned URLs expire after one hour.
 
-## 開発
+## Development
 
-開発用依存関係をインストールして Python テストを実行します。
+Install the development dependencies and run the Python tests:
 
 ```powershell
 python -m pip install -e ".[dev]"
 python -m pytest
 ```
 
-Node.js がある場合は、ダウンロードコマンド生成処理のテストも実行できます。
+If Node.js is available, run the download-command generation tests as well:
 
 ```powershell
 node --test tests/test_download_utils.js
 ```
 
-不具合報告や改善提案は [Issues](https://github.com/toshiki-takedomi/r2-file-manager/issues) へお願いします。Pull Request も歓迎します。
+Use [Issues](https://github.com/toshiki-takedomi/r2-file-manager/issues) for bug reports and feature requests. Pull requests are welcome.
 
-## セキュリティ上の注意
+## Security notes
 
-- このアプリで必要な操作だけを許可した、専用の R2 認証情報を使用してください。
-- Public URL を設定すると、対象 URL は署名なしで共有されます。バケットの公開範囲を確認してください。
-- 署名 URL や生成したダウンロードコマンドには、一時的なアクセス権が含まれます。公開場所へ貼り付けないでください。
-- 共有 PC では、利用後に Windows 資格情報マネージャーから認証情報を削除してください。
+- Use dedicated R2 credentials that grant only the operations required by this application.
+- When a Public URL is configured, the resulting URLs are shared without signatures. Verify the bucket's public-access settings.
+- Presigned URLs and generated download commands contain temporary access credentials. Do not post them publicly.
+- On a shared PC, remove the stored credentials from Windows Credential Manager after use.
 
-このプロジェクトは Cloudflare の公式製品ではありません。
+This project is not an official Cloudflare product.
 
-## ライセンス
+## License
 
-このプロジェクトは [MIT License](https://opensource.org/license/mit) の下で公開されています。
+This project is released under the [MIT License](https://opensource.org/license/mit).
