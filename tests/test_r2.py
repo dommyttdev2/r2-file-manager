@@ -145,6 +145,27 @@ def test_download_info_creates_one_hour_presigned_url_without_public_url():
     )
 
 
+def test_upload_url_creates_one_hour_presigned_put_url():
+    class PresigningClient:
+        def __init__(self):
+            self.call = None
+
+        def generate_presigned_url(self, operation, **kwargs):
+            self.call = (operation, kwargs)
+            return "https://signed.example/upload"
+
+    service = R2Service.__new__(R2Service)
+    service.client = PresigningClient()
+
+    result = service.upload_url("bucket", "models/file.bin")
+
+    assert result == {"url": "https://signed.example/upload", "expires_in": 3600}
+    assert service.client.call == (
+        "put_object",
+        {"Params": {"Bucket": "bucket", "Key": "models/file.bin"}, "ExpiresIn": 3600},
+    )
+
+
 def test_download_url_forces_attachment_with_utf8_file_name():
     class PresigningClient:
         def __init__(self):

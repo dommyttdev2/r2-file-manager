@@ -74,6 +74,7 @@
         <nav id="breadcrumbs" class="breadcrumbs" aria-label="現在の場所"></nav>
         <div class="actions">
           <button id="open-batch-download" class="secondary-button">一括DLのURL生成</button>
+          <button id="open-presigned-upload" class="secondary-button">署名付きPUT URL発行</button>
           <button id="delete-selected" class="danger-secondary hidden">選択項目を削除</button>
           <button id="refresh-objects" class="secondary-button" title="更新">↻</button>
           <button id="upload-button" class="primary-button">⇧ アップロード</button>
@@ -160,6 +161,29 @@
         <button id="clear-upload-files" type="button" class="link-button" disabled>すべて削除</button>
         <div class="actions"><button type="button" class="secondary-button modal-close">キャンセル</button><button id="start-upload" type="submit" class="primary-button" disabled>アップロード開始</button></div>
       </div>
+    </form>
+  </dialog>
+
+  <dialog id="presigned-upload-dialog" class="modal download-modal">
+    <form id="presigned-upload-form" method="dialog">
+      <div class="modal-header"><div><p class="eyebrow">PRESIGNED PUT</p><h2>署名付きPUT URLを発行</h2></div><button type="button" class="modal-close" aria-label="閉じる">×</button></div>
+      <label>R2上の保存先
+        <div class="destination-row"><span id="presigned-upload-bucket">bucket</span><span>/</span><input id="presigned-upload-key" name="key" autocomplete="off" placeholder="models/model.bin" required></div>
+        <small>ファイル名を含むフルパスを入力してください。先頭の / は不要です。</small>
+      </label>
+      <label class="presigned-local-file">Linux上のローカルファイルパス
+        <input id="presigned-local-path" name="local_path" autocomplete="off" placeholder="./model.bin" required>
+        <small>この値を使って、実行可能なcurlコマンドを生成します。</small>
+      </label>
+      <div id="presigned-upload-message" class="inline-message hidden"></div>
+      <div id="presigned-upload-result" class="hidden">
+        <div class="command-heading"><strong>発行結果</strong><small id="presigned-upload-note"></small></div>
+        <label>署名付きPUT URL</label>
+        <div class="copy-row"><input id="presigned-upload-url" type="text" readonly><button type="button" class="secondary-button copy-button" data-copy-target="presigned-upload-url">コピー</button></div>
+        <label class="command-label">Linuxアップロードコマンド</label>
+        <div class="command-row"><code id="presigned-upload-command"></code><button type="button" class="secondary-button copy-button" data-copy-target="presigned-upload-command">コピー</button></div>
+      </div>
+      <div class="modal-footer actions"><button type="button" class="secondary-button modal-close">閉じる</button><button id="generate-presigned-upload" type="submit" class="primary-button">URLを発行</button></div>
     </form>
   </dialog>
 

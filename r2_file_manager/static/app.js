@@ -11,6 +11,7 @@
     normalizeAria2Connections,
     normalizeAria2ConcurrentDownloads,
     selectVisible,
+    shellQuote,
   } = globalThis.R2DownloadUtils;
   const state = {
     configured: false,
@@ -440,6 +441,47 @@
       document.execCommand("copy");
       area.remove();
       toast("クリップボードにコピーしました。");
+    }
+  }
+
+  function openPresignedUploadDialog() {
+    if (!state.bucket) return;
+    $("#presigned-upload-bucket").textContent = state.bucket;
+    $("#presigned-upload-key").value = state.prefix;
+    $("#presigned-local-path").value = "";
+    $("#presigned-upload-result").classList.add("hidden");
+    hideInline("#presigned-upload-message");
+    $("#presigned-upload-dialog").showModal();
+    $("#presigned-upload-key").focus();
+  }
+
+  async function generatePresignedUpload(event) {
+    event.preventDefault();
+    if (!state.bucket) return;
+    const button = $("#generate-presigned-upload");
+    const key = $("#presigned-upload-key").value.trim().replace(/^\/+/, "");
+    const localPath = $("#presigned-local-path").value.trim();
+    hideInline("#presigned-upload-message");
+    $("#presigned-upload-result").classList.add("hidden");
+    if (!localPath) {
+      showInline("#presigned-upload-message", "Linux上のローカルファイルパスを入力してください。");
+      return;
+    }
+    try {
+      setBusy(button, true, "発行中…");
+      const info = await api("/api/objects/upload-url", {
+        method: "POST",
+        data: { bucket: state.bucket, key },
+      });
+      $("#presigned-upload-key").value = key;
+      $("#presigned-upload-url").value = info.url;
+      $("#presigned-upload-command").textContent = `curl --fail-with-body --upload-file ${shellQuote(localPath)} ${shellQuote(info.url)}`;
+      $("#presigned-upload-note").textContent = `${Math.round(info.expires_in / 60)}分間有効です。URLには一時的な認証情報が含まれます。`;
+      $("#presigned-upload-result").classList.remove("hidden");
+    } catch (error) {
+      showInline("#presigned-upload-message", error.message);
+    } finally {
+      setBusy(button, false);
     }
   }
 
@@ -1423,6 +1465,8 @@
     });
     $("#delete-selected").addEventListener("click", deleteSelected);
     $("#download-object").addEventListener("click", downloadObject);
+    $("#open-presigned-upload").addEventListener("click", openPresignedUploadDialog);
+    $("#presigned-upload-form").addEventListener("submit", generatePresignedUpload);
     $("#move-object").addEventListener("click", openMoveDialog);
     $("#move-form").addEventListener("submit", moveObject);
     $("#show-download-info").addEventListener("click", showDownloadInfo);

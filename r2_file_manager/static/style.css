@@ -216,6 +216,7 @@ label small { display: block; margin-top: 5px; color: var(--muted); font-weight:
 .download-modal .modal-shell { overflow: hidden; }
 
 .upload-modal { width: min(680px, calc(100vw - 48px)); }
+.presigned-local-file { margin-top: 16px; }
 .destination-row { display: flex; align-items: center; gap: 7px; margin-top: 6px; }
 .destination-row > span { color: var(--muted); font-weight: 600; white-space: nowrap; }
 .destination-row input { flex: 1; margin-top: 0; }

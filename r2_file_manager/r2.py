@@ -188,6 +188,14 @@ class R2Service:
         )
         return {"url": url, "public": False, "expires_in": expires_in}
 
+    def upload_url(self, bucket: str, key: str, expires_in: int = 3600) -> dict[str, Any]:
+        url = self.client.generate_presigned_url(
+            "put_object",
+            Params={"Bucket": bucket, "Key": key},
+            ExpiresIn=expires_in,
+        )
+        return {"url": url, "expires_in": expires_in}
+
     def download_url(self, bucket: str, key: str, expires_in: int = 300) -> dict[str, Any]:
         file_name = key.rsplit("/", 1)[-1].replace("\r", "").replace("\n", "") or "download"
         ascii_name = file_name.encode("ascii", "ignore").decode("ascii").strip()

@@ -68,6 +68,15 @@ class FakeService:
             "file_name": key.rsplit("/", 1)[-1],
         }
 
+    def upload_url(self, bucket, key):
+        return {"url": f"https://signed.example/upload/{bucket}/{key}", "expires_in": 3600}
+
+    def object_exists(self, bucket, key):
+        return False
+
+    def delete_objects(self, bucket, keys):
+        return {"deleted": keys, "errors": []}
+
     def move_object(
         self, bucket, source_key, destination_key, *, overwrite=False, progress_callback=None
     ):
@@ -157,6 +166,45 @@ def test_download_url_endpoint(tmp_path):
         "file_name": "model.bin",
     }
     assert response.cache_control.no_store
+
+
+def test_upload_url_endpoint(tmp_path):
+    client, store, headers = make_client(tmp_path)
+    store.save(
+        {"name": "Test R2", "account_id": "a" * 32, "access_key_id": "access", "public_url": ""},
+        "secret",
+    )
+
+    response = client.post(
+        "/api/objects/upload-url",
+        headers=headers,
+        json={"bucket": "models", "key": "incoming/model.bin"},
+    )
+
+    assert response.status_code == 200
+    assert response.get_json() == {
+        "url": "https://signed.example/upload/models/incoming/model.bin",
+        "expires_in": 3600,
+    }
+    assert response.cache_control.no_store
+
+
+def test_upload_url_endpoint_rejects_folder_and_oversized_key(tmp_path):
+    client, store, headers = make_client(tmp_path)
+    store.save(
+        {"name": "Test R2", "account_id": "a" * 32, "access_key_id": "access", "public_url": ""},
+        "secret",
+    )
+
+    folder = client.post(
+        "/api/objects/upload-url", headers=headers, json={"bucket": "models", "key": "incoming/"}
+    )
+    oversized = client.post(
+        "/api/objects/upload-url", headers=headers, json={"bucket": "models", "key": "a" * 1025}
+    )
+
+    assert folder.status_code == 400
+    assert oversized.status_code == 400
 
 
 def test_batch_download_info_endpoint(tmp_path):

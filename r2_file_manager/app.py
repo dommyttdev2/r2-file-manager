@@ -253,6 +253,19 @@ def create_app(
         response.cache_control.no_store = True
         return response
 
+    @app.post("/api/objects/upload-url")
+    def object_upload_url():
+        values = _json()
+        bucket = str(values.get("bucket") or "")
+        key = str(values.get("key") or "")
+        if not bucket or not key or key.endswith("/"):
+            raise ValueError("アップロード先のファイルパスを指定してください。")
+        if len(key.encode("utf-8")) > 1024:
+            raise ValueError("オブジェクト名が1,024バイトを超えています。")
+        response = jsonify(current_service().upload_url(bucket, key))
+        response.cache_control.no_store = True
+        return response
+
     @app.post("/api/objects/download-info-batch")
     def object_download_info_batch():
         values = _json()
