@@ -5,6 +5,7 @@ import secrets
 import shutil
 import tempfile
 import threading
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +15,7 @@ from flask import Flask, jsonify, render_template, request
 from .config import ConfigStore, ConnectionSettings, validate_settings
 from .download_templates import BatchDownloadTemplateStore
 from .metrics import fetch_account_metrics
+from .object_index import ObjectIndex
 from .r2 import R2Service
 from .uploads import UploadRegistry
 
@@ -50,6 +52,7 @@ def create_app(
     service_factory: type[R2Service] = R2Service,
     metrics_fetcher=fetch_account_metrics,
     data_dir: Path | None = None,
+    object_index: ObjectIndex | None = None,
 ) -> Flask:
     app = Flask(__name__)
     app.config.update(JSON_AS_ASCII=False)
@@ -58,9 +61,16 @@ def create_app(
     template_store = BatchDownloadTemplateStore(
         store.data_dir / "batch_download_templates.json"
     )
+    index_store = object_index or ObjectIndex(store.data_dir / "objects.sqlite3")
     api_token = secrets.token_urlsafe(32)
     move_jobs: dict[str, dict[str, Any]] = {}
     move_jobs_lock = threading.Lock()
+    index_sync_lock = threading.Lock()
+    index_sync_status: dict[str, Any] = {
+        "syncing": False,
+        "last_error": "",
+        "last_completed_at": None,
+    }
 
     def move_job_snapshot(job: dict[str, Any]) -> dict[str, Any]:
         return {
@@ -95,6 +105,46 @@ def create_app(
         if not secret:
             raise RuntimeError("Secret Access Keyが保存されていません。")
         return service_factory(settings, secret)
+
+    def sync_object_index() -> bool:
+        if not index_sync_lock.acquire(blocking=False):
+            return False
+        index_sync_status["syncing"] = True
+        index_sync_status["last_error"] = ""
+        try:
+            service = current_service()
+            account_id = service.settings.account_id
+            buckets = [item["name"] for item in service.list_buckets()]
+            for bucket in buckets:
+                objects: list[dict[str, Any]] = []
+                token: str | None = None
+                while True:
+                    page = service.list_objects(bucket, "", token, recursive=True)
+                    objects.extend(page["objects"])
+                    token = page.get("next_token")
+                    if not token:
+                        break
+                index_store.replace_bucket(account_id, bucket, objects)
+            index_store.retain_buckets(account_id, buckets)
+        except Exception as exc:
+            index_sync_status["last_error"] = str(exc)
+        else:
+            index_sync_status["last_completed_at"] = datetime.now(UTC).isoformat()
+        finally:
+            index_sync_status["syncing"] = False
+            index_sync_lock.release()
+        return True
+
+    def start_object_index_sync() -> None:
+        threading.Thread(
+            target=sync_object_index,
+            name="r2-object-index-sync",
+            daemon=True,
+        ).start()
+
+    app.extensions["object_index"] = index_store
+    app.extensions["sync_object_index"] = sync_object_index
+    app.extensions["object_index_sync_status"] = index_sync_status
 
     @app.get("/")
     def index():
@@ -178,6 +228,7 @@ def create_app(
             metrics_fetcher(settings.account_id, submitted_metrics_token)
         submitted_secret = str(values.get("secret_access_key") or "") or None
         saved = store.save(values, submitted_secret, submitted_metrics_token or None)
+        start_object_index_sync()
         return jsonify(ok=True, name=saved.name)
 
     @app.get("/api/metrics")
@@ -210,7 +261,9 @@ def create_app(
     @app.delete("/api/buckets/<name>")
     def delete_bucket(name: str):
         require_token()
-        current_service().delete_bucket(name)
+        service = current_service()
+        service.delete_bucket(name)
+        index_store.delete_bucket(service.settings.account_id, name)
         return jsonify(ok=True)
 
     @app.get("/api/objects")
@@ -230,8 +283,17 @@ def create_app(
             raise ValueError("バケットを指定してください。")
         if not query:
             raise ValueError("検索文字列を入力してください。")
-        token = request.args.get("continuation_token") or None
-        return jsonify(current_service().search_objects(bucket, query, token))
+        try:
+            offset = int(request.args.get("continuation_token") or 0)
+        except ValueError as exc:
+            raise ValueError("検索の続き位置が正しくありません。") from exc
+        settings = store.load()
+        if settings is None:
+            raise RuntimeError("接続設定を完了してください。")
+        result = index_store.search(settings.account_id, bucket, query, offset)
+        result["syncing"] = index_sync_status["syncing"]
+        result["last_sync_error"] = index_sync_status["last_error"]
+        return jsonify(result)
 
     @app.get("/api/objects/download-info")
     def object_download_info():
@@ -375,6 +437,17 @@ def create_app(
             except Exception:
                 message = "ファイルの移動に失敗しました。"
             else:
+                index_store.move(
+                    service.settings.account_id,
+                    bucket,
+                    source_key,
+                    destination_key,
+                    fallback={
+                        "size": job["total_bytes"],
+                        "last_modified": datetime.now(UTC).isoformat(),
+                        "storage_class": "STANDARD",
+                    },
+                )
                 with move_jobs_lock:
                     job["status"] = "complete"
                     job["transferred_bytes"] = job["total_bytes"]
@@ -407,7 +480,10 @@ def create_app(
         keys = values.get("keys")
         if not bucket or not isinstance(keys, list) or not all(isinstance(key, str) for key in keys):
             raise ValueError("削除対象が正しくありません。")
-        return jsonify(current_service().delete_objects(bucket, keys))
+        service = current_service()
+        result = service.delete_objects(bucket, keys)
+        index_store.delete(service.settings.account_id, bucket, result["deleted"])
+        return jsonify(result)
 
     @app.get("/api/uploads")
     def list_uploads():
@@ -506,12 +582,23 @@ def create_app(
                 {"PartNumber": number, "ETag": session["parts"][str(number)]}
                 for number in range(1, expected_parts + 1)
             ]
-            service.client.complete_multipart_upload(
+            response = service.client.complete_multipart_upload(
                 Bucket=session["bucket"],
                 Key=session["key"],
                 UploadId=session["upload_id"],
                 MultipartUpload={"Parts": parts},
             )
+        index_store.upsert(
+            service.settings.account_id,
+            session["bucket"],
+            {
+                "key": session["key"],
+                "size": session["size"],
+                "etag": (response.get("ETag", "").strip('"') if session["size"] else ""),
+                "last_modified": datetime.now(UTC).isoformat(),
+                "storage_class": "STANDARD",
+            },
+        )
         registry.remove(session_id)
         return jsonify(ok=True)
 
@@ -554,5 +641,8 @@ def create_app(
     @app.errorhandler(RuntimeError)
     def runtime_error(exc: RuntimeError):
         return jsonify(error=str(exc)), 500
+
+    if store.load() is not None:
+        start_object_index_sync()
 
     return app

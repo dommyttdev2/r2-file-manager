@@ -36,6 +36,7 @@
     actionObject: null,
     metricsRefreshTimers: [],
   };
+  let batchSearchTimer = null;
 
   class ApiError extends Error {
     constructor(message, status, code) {
@@ -772,9 +773,17 @@
       $("#batch-load-more").classList.toggle("hidden", !state.batchDownloadNextToken);
       $("#batch-browser-empty").classList.toggle("hidden", rows.children.length !== 0);
       $("#batch-browser-description").textContent = searching
-        ? `「${state.batchDownloadSearchQuery}」の検索結果（バケット全体）`
+        ? result.syncing
+          ? `「${state.batchDownloadSearchQuery}」の検索結果（インデックス同期中…）`
+          : `「${state.batchDownloadSearchQuery}」の検索結果（バケット全体）`
         : "現在のフォルダ";
       $("#clear-batch-search").classList.toggle("hidden", !searching);
+      if (searching && result.syncing) {
+        const query = state.batchDownloadSearchQuery;
+        setTimeout(() => {
+          if (state.batchDownloadSearchQuery === query) loadBatchObjects(false);
+        }, 1000);
+      }
     } catch (error) {
       if (requestId !== state.batchDownloadRequestId) return;
       if (!append) rows.innerHTML = `<tr><td colspan="4" class="status-error">${escapeHtml(error.message)}</td></tr>`;
@@ -861,7 +870,8 @@
   }
 
   async function searchBatchObjects(event) {
-    event.preventDefault();
+    event?.preventDefault();
+    clearTimeout(batchSearchTimer);
     const query = $("#batch-search-input").value.trim();
     if (!query) {
       await clearBatchSearch();
@@ -872,7 +882,13 @@
     await loadBatchObjects(false);
   }
 
+  function scheduleBatchSearch() {
+    clearTimeout(batchSearchTimer);
+    batchSearchTimer = setTimeout(() => searchBatchObjects(), 250);
+  }
+
   async function clearBatchSearch() {
+    clearTimeout(batchSearchTimer);
     state.batchDownloadSearchQuery = "";
     state.batchDownloadNextToken = null;
     $("#batch-search-input").value = "";
@@ -1444,6 +1460,7 @@
     $("#overwrite-batch-template").addEventListener("click", overwriteSelectedBatchTemplate);
     $("#delete-batch-template").addEventListener("click", deleteSelectedBatchTemplate);
     $("#batch-search-form").addEventListener("submit", searchBatchObjects);
+    $("#batch-search-input").addEventListener("input", scheduleBatchSearch);
     $("#clear-batch-search").addEventListener("click", clearBatchSearch);
     $("#batch-load-more").addEventListener("click", () => loadBatchObjects(true));
     $("#select-visible-batch").addEventListener("click", selectVisibleBatchObjects);

@@ -25,6 +25,9 @@ class FakeClient:
     def list_buckets(self, **_kwargs):
         return {"Buckets": []}
 
+    def put_object(self, **_kwargs):
+        return {"ETag": '"empty-etag"'}
+
 
 class FakeService:
     last_credentials = None
@@ -267,13 +270,24 @@ def test_batch_download_info_rejects_empty_or_too_many_keys(tmp_path):
 
 def test_object_search_endpoint(tmp_path):
     client, store, headers = make_client(tmp_path)
-    store.save(
+    settings = store.save(
         {"name": "Test R2", "account_id": "a" * 32, "access_key_id": "access", "public_url": ""},
         "secret",
     )
+    client.application.extensions["object_index"].upsert(
+        settings.account_id,
+        "models",
+        {
+            "key": "archive/AnImA.bin",
+            "size": 42,
+            "etag": "etag",
+            "last_modified": None,
+            "storage_class": "STANDARD",
+        },
+    )
 
     response = client.get(
-        "/api/objects/search?bucket=models&query=AnImA&continuation_token=next-page",
+        "/api/objects/search?bucket=models&query=AnImA",
         headers=headers,
     )
 
@@ -289,8 +303,10 @@ def test_object_search_endpoint(tmp_path):
                 "storage_class": "STANDARD",
             }
         ],
-        "next_token": "next-page",
-        "scanned": 1,
+        "next_token": None,
+        "scanned": 0,
+        "syncing": False,
+        "last_sync_error": "",
     }
 
 
@@ -304,6 +320,52 @@ def test_object_search_rejects_empty_query(tmp_path):
     response = client.get("/api/objects/search?bucket=models&query=", headers=headers)
 
     assert response.status_code == 400
+
+
+def test_completed_upload_is_added_to_local_search_index(tmp_path):
+    client, store, headers = make_client(tmp_path)
+    store.save(
+        {"name": "Test R2", "account_id": "a" * 32, "access_key_id": "access", "public_url": ""},
+        "secret",
+    )
+    started = client.post(
+        "/api/uploads",
+        headers=headers,
+        json={
+            "bucket": "models",
+            "key": "incoming/empty.bin",
+            "file_name": "empty.bin",
+            "content_type": "application/octet-stream",
+            "size": 0,
+        },
+    ).get_json()
+
+    response = client.post(f"/api/uploads/{started['id']}/complete", headers=headers, json={})
+
+    assert response.status_code == 200
+    result = client.application.extensions["object_index"].search(
+        "a" * 32, "models", "empty.bin"
+    )
+    assert [item["key"] for item in result["objects"]] == ["incoming/empty.bin"]
+
+
+def test_delete_removes_objects_from_local_search_index(tmp_path):
+    client, store, headers = make_client(tmp_path)
+    settings = store.save(
+        {"name": "Test R2", "account_id": "a" * 32, "access_key_id": "access", "public_url": ""},
+        "secret",
+    )
+    index = client.application.extensions["object_index"]
+    index.upsert(settings.account_id, "models", {"key": "old/file.bin", "size": 10})
+
+    response = client.post(
+        "/api/objects/delete",
+        headers=headers,
+        json={"bucket": "models", "keys": ["old/file.bin"]},
+    )
+
+    assert response.status_code == 200
+    assert index.search(settings.account_id, "models", "file.bin")["objects"] == []
 
 
 def test_batch_download_template_endpoints(tmp_path):
@@ -418,6 +480,50 @@ def test_move_object_endpoint(tmp_path):
         "archive/日本語.bin",
         True,
     )
+    indexed = client.application.extensions["object_index"].search(
+        "a" * 32, "models", "archive/日本語"
+    )
+    assert [item["key"] for item in indexed["objects"]] == ["archive/日本語.bin"]
+
+
+def test_existing_configuration_starts_full_r2_index_sync(tmp_path):
+    store = ConfigStore(tmp_path, MemorySecrets())
+    store.save(
+        {"name": "Test R2", "account_id": "a" * 32, "access_key_id": "access", "public_url": ""},
+        "secret",
+    )
+
+    class SyncService(FakeService):
+        def list_buckets(self):
+            return [{"name": "models", "created_at": None}]
+
+        def list_objects(self, bucket, prefix="", continuation_token=None, *, recursive=False):
+            assert recursive is True
+            return {
+                "folders": [],
+                "objects": [
+                    {
+                        "key": "synced/path.bin",
+                        "name": "synced/path.bin",
+                        "size": 99,
+                        "etag": "etag",
+                        "last_modified": None,
+                        "storage_class": "STANDARD",
+                    }
+                ],
+                "next_token": None,
+            }
+
+    app = create_app(config_store=store, service_factory=SyncService)
+    for _attempt in range(100):
+        status = app.extensions["object_index_sync_status"]
+        if status["last_completed_at"]:
+            break
+        time.sleep(0.01)
+
+    assert status["last_error"] == ""
+    result = app.extensions["object_index"].search("a" * 32, "models", "synced")
+    assert [item["key"] for item in result["objects"]] == ["synced/path.bin"]
 
 
 def test_settings_are_tested_then_saved_without_plaintext_secret(tmp_path):
