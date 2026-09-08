@@ -1,5 +1,8 @@
 # R2 File Manager
 
+> [!IMPORTANT]
+> このStandaloneアプリの主要機能は `dommyttdev2/comfyui-batch-studio` の **モデル配置 / R2ファイル管理** へ統合されました。新規のComfyUI Batch Studio運用では、R2管理の正本はBatch Studio側です。このrepositoryはStandalone版・移行元・既存利用者向けとして維持します。
+
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Cloudflare R2](https://img.shields.io/badge/Cloudflare-R2-F38020?logo=cloudflare&logoColor=white)](https://developers.cloudflare.com/r2/)
 
